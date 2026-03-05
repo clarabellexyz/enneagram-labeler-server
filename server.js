@@ -49,10 +49,29 @@ const TYPE_LABELS = [
   { identifier:"e8", name:"Type 8 · The Challenger",    description:"Self-confident, decisive, willful, and confrontational." },
   { identifier:"e9", name:"Type 9 · The Peacemaker",    description:"Receptive, reassuring, agreeable, and complacent." },
 ];
-const WING_LABELS = WINGS.map(w => ({
-  identifier: w, name: WING_NAMES[w],
-  description: `Enneagram ${w.replace("e","").replace("w"," with wing ")}.`,
-}));
+const WING_LABELS = WINGS.map(w => {
+  const descriptions = {
+    "e1w9": "More detached and philosophical. The 9-wing softens the One's rigidity with acceptance and a longing for inner peace.",
+    "e1w2": "More warm and people-oriented. The 2-wing channels the One's principles into direct service and concern for others.",
+    "e2w1": "More principled and self-controlled. The 1-wing gives the Two a strong sense of duty and refinement in their giving.",
+    "e2w3": "More ambitious and image-conscious. The 3-wing adds charm and drive, making this subtype highly engaging and sociable.",
+    "e3w2": "More people-pleasing and interpersonal. The 2-wing makes the Three warmer, more relational, and attuned to others' feelings.",
+    "e3w4": "More introspective and image-refined. The 4-wing gives the Three depth, artistic sensibility, and a desire for authenticity.",
+    "e4w3": "More extroverted and achievement-oriented. The 3-wing energizes the Four toward expression, performance, and external recognition.",
+    "e4w5": "More withdrawn and intellectual. The 5-wing deepens the Four's introspection, adding a reclusive, cerebral quality.",
+    "e5w4": "More individualistic and emotionally expressive. The 4-wing gives the Five creativity, aesthetic sensitivity, and deeper self-awareness.",
+    "e5w6": "More loyal and socially engaged. The 6-wing anchors the Five in practical thinking, collaboration, and concern for systems.",
+    "e6w5": "More private and independent. The 5-wing gives the Six greater self-reliance and analytical depth to manage anxiety.",
+    "e6w7": "More outgoing and optimistic. The 7-wing lightens the Six's anxiety, adding humor, enthusiasm, and a love of adventure.",
+    "e7w6": "More responsible and relationship-focused. The 6-wing grounds the Seven's enthusiasm with loyalty and a need for security.",
+    "e7w8": "More assertive and pragmatic. The 8-wing gives the Seven a bold, driven edge and a willingness to go after what they want.",
+    "e8w7": "More expansive and pleasure-seeking. The 7-wing makes the Eight more visionary, charismatic, and energetically restless.",
+    "e8w9": "More calm and receptive. The 9-wing softens the Eight's intensity with patience and a more measured approach to power.",
+    "e9w8": "More assertive and energetic. The 8-wing gives the Nine greater confidence, decisiveness, and a stronger sense of presence.",
+    "e9w1": "More principled and orderly. The 1-wing channels the Nine's acceptance into quiet idealism and a gentle moral compass.",
+  };
+  return { identifier: w, name: WING_NAMES[w], description: descriptions[w] };
+});
 const SUBTYPE_LABELS = WINGS.flatMap(w => [
   { identifier:`${w}-sp`, name:`${w.replace("e","")} SP`, description:`${w.replace("e","").replace("w"," w")} · Self-Preservation subtype.` },
   { identifier:`${w}-so`, name:`${w.replace("e","")} SO`, description:`${w.replace("e","").replace("w"," w")} · Social subtype.` },
