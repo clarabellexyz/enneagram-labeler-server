@@ -269,6 +269,8 @@ const healthServer = http.createServer(async (req, res) => {
           locales: [{ lang: "en", name: l.name, description: l.description }]
         }))
       };
+      record.subjectTypes = ["account"];
+      record.subjectCollections = ["app.bsky.actor.profile"];
       await agent.api.com.atproto.repo.putRecord({
         repo: LABELER_DID, collection: "app.bsky.labeler.service", rkey: "self", record,
       });
