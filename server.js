@@ -65,6 +65,7 @@ const ALL_LABELS = [...TYPE_LABELS, ...WING_LABELS, ...SUBTYPE_LABELS];
 const server = new LabelerServer({
   did: LABELER_DID,
   signingKey: SIGNING_KEY,
+  dbPath: "/data/labels.db",
 });
 
 server.start(LABELER_PORT, (error, address) => {
