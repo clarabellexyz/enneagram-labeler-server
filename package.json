@@ -1,13 +1,17 @@
-	
-name	"enneagram-labeler"
-version	"1.0.0"
-description	"Bluesky Enneagram Labeler powered by @skyware/labeler"
-type	"module"
-main	"server.js"
-scripts	
-start	"node server.js"
-engines	
-node	">=18.0.0"
-dependencies	
-@atproto/api	"latest"
-@skyware/labeler	"latest"
+{
+  "name": "enneagram-labeler",
+  "version": "1.0.0",
+  "description": "Bluesky Enneagram Labeler powered by @skyware/labeler",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@atproto/api": "latest",
+    "@skyware/labeler": "latest"
+  }
+}
