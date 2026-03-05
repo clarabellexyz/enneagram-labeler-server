@@ -77,10 +77,15 @@ server.start(LABELER_PORT, (error, address) => {
 
 // ─── Helper: verify a Bluesky access token and return the DID ────────────────
 async function verifyToken(accessJwt) {
+  // Decode the DID directly from the JWT payload (it's a standard JWT)
+  const payload = JSON.parse(Buffer.from(accessJwt.split('.')[1], 'base64').toString());
+  const did = payload.sub;
+  if (!did || !did.startsWith('did:')) throw new Error('Invalid token');
+
+  // Verify the token is still valid by calling getSession
   const agent = new AtpAgent({ service: "https://bsky.social" });
-  agent.session = { accessJwt, refreshJwt: "", handle: "", did: "", email: "" };
-  const res = await agent.api.com.atproto.server.getSession();
-  return res.data.did;
+  await agent.resumeSession({ accessJwt, refreshJwt: "", handle: "", did, email: "", active: true });
+  return did;
 }
 
 // ─── Helper: remove existing enneagram labels for a DID ──────────────────────
