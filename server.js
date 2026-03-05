@@ -91,15 +91,18 @@ async function verifyToken(accessJwt) {
 
 // ─── Helper: remove existing enneagram labels ─────────────────────────────────
 async function removeExistingLabels(did) {
-  try {
-    const labels = await server.queryLabels({ subjects: [did] });
-    for (const label of labels) {
-      if (VALID_LABELS.has(label.val) && !label.neg) {
-        await server.createLabel({ uri: did, val: label.val, neg: true });
+  const profileUri = `at://${did}/app.bsky.actor.profile/self`;
+  for (const subject of [did, profileUri]) {
+    try {
+      const labels = await server.queryLabels({ subjects: [subject] });
+      for (const label of labels) {
+        if (VALID_LABELS.has(label.val) && !label.neg) {
+          await server.createLabel({ uri: subject, val: label.val, neg: true });
+        }
       }
+    } catch (err) {
+      console.log(`Could not query labels for ${subject}:`, err.message);
     }
-  } catch (err) {
-    console.log("Could not query existing labels, proceeding:", err.message);
   }
 }
 
@@ -147,12 +150,59 @@ const healthServer = http.createServer(async (req, res) => {
         console.log(`Applying label "${label}" to ${userDid}`);
         await removeExistingLabels(userDid);
         console.log(`Calling createLabel...`);
-        const result = await server.createLabel({ uri: userDid, val: label });
+        const profileUri = `at://${userDid}/app.bsky.actor.profile/self`;
+        const result = await server.createLabel({ uri: profileUri, val: label });
         console.log(`createLabel result:`, JSON.stringify(result));
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ success: true, did: userDid, label }));
       } catch (err) {
         console.error("Apply label error:", err);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // Remove self-label endpoint (clears old self-labels written directly to profile)
+  if (url.pathname === "/remove-self-label" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", async () => {
+      try {
+        const { accessJwt } = JSON.parse(body);
+        if (!accessJwt) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Missing accessJwt" }));
+          return;
+        }
+        const userDid = await verifyToken(accessJwt);
+
+        // Fetch existing profile record
+        const getRes = await fetch(`https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=${userDid}&collection=app.bsky.actor.profile&rkey=self`, {
+          headers: { 'Authorization': `Bearer ${accessJwt}` }
+        });
+        const existing = getRes.ok ? await getRes.json() : { value: {} };
+        const record = existing.value || {};
+        record.$type = record.$type || 'app.bsky.actor.profile';
+
+        // Filter out all enneagram self-labels
+        const filtered = (record.labels?.values || []).filter(l =>
+          !l.val.match(/^e[1-9](w[1-9](-(sp|so|sx))?)?$/)
+        );
+        record.labels = { $type: 'com.atproto.label.defs#selfLabels', values: filtered };
+
+        const putRes = await fetch('https://bsky.social/xrpc/com.atproto.repo.putRecord', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${accessJwt}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repo: userDid, collection: 'app.bsky.actor.profile', rkey: 'self', record })
+        });
+
+        if (!putRes.ok) throw new Error('Failed to remove self-labels');
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true }));
+      } catch (err) {
+        console.error("Remove self-label error:", err);
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: err.message }));
       }
