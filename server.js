@@ -1,4 +1,5 @@
 import { LabelerServer } from "@skyware/labeler";
+import { Bot } from "@skyware/bot";
 import { AtpAgent } from "@atproto/api";
 import http from "http";
 import net from "net";
@@ -38,6 +39,28 @@ const WING_NAMES = {
   "e8w7":"8w7 · The Maverick","e8w9":"8w9 · The Bear",
   "e9w8":"9w8 · The Referee","e9w1":"9w1 · The Dreamer",
 };
+
+const WING_DESCRIPTIONS = {
+  "e1w9": "More detached and philosophical. The 9-wing softens the One's rigidity with acceptance and a longing for inner peace.",
+  "e1w2": "More warm and people-oriented. The 2-wing channels the One's principles into direct service and concern for others.",
+  "e2w1": "More principled and self-controlled. The 1-wing gives the Two a strong sense of duty and refinement in their giving.",
+  "e2w3": "More ambitious and image-conscious. The 3-wing adds charm and drive, making this subtype highly engaging and sociable.",
+  "e3w2": "More people-pleasing and interpersonal. The 2-wing makes the Three warmer, more relational, and attuned to others' feelings.",
+  "e3w4": "More introspective and image-refined. The 4-wing gives the Three depth, artistic sensibility, and a desire for authenticity.",
+  "e4w3": "More extroverted and achievement-oriented. The 3-wing energizes the Four toward expression, performance, and external recognition.",
+  "e4w5": "More withdrawn and intellectual. The 5-wing deepens the Four's introspection, adding a reclusive, cerebral quality.",
+  "e5w4": "More individualistic and emotionally expressive. The 4-wing gives the Five creativity, aesthetic sensitivity, and deeper self-awareness.",
+  "e5w6": "More loyal and socially engaged. The 6-wing anchors the Five in practical thinking, collaboration, and concern for systems.",
+  "e6w5": "More private and independent. The 5-wing gives the Six greater self-reliance and analytical depth to manage anxiety.",
+  "e6w7": "More outgoing and optimistic. The 7-wing lightens the Six's anxiety, adding humor, enthusiasm, and a love of adventure.",
+  "e7w6": "More responsible and relationship-focused. The 6-wing grounds the Seven's enthusiasm with loyalty and a need for security.",
+  "e7w8": "More assertive and pragmatic. The 8-wing gives the Seven a bold, driven edge and a willingness to go after what they want.",
+  "e8w7": "More expansive and pleasure-seeking. The 7-wing makes the Eight more visionary, charismatic, and energetically restless.",
+  "e8w9": "More calm and receptive. The 9-wing softens the Eight's intensity with patience and a more measured approach to power.",
+  "e9w8": "More assertive and energetic. The 8-wing gives the Nine greater confidence, decisiveness, and a stronger sense of presence.",
+  "e9w1": "More principled and orderly. The 1-wing channels the Nine's acceptance into quiet idealism and a gentle moral compass.",
+};
+
 const TYPE_LABELS = [
   { identifier:"e1", name:"Type 1 · The Reformer",      description:"Principled, purposeful, self-controlled, and perfectionistic." },
   { identifier:"e2", name:"Type 2 · The Helper",        description:"Caring, interpersonal, demonstrative, and generous." },
@@ -49,29 +72,9 @@ const TYPE_LABELS = [
   { identifier:"e8", name:"Type 8 · The Challenger",    description:"Self-confident, decisive, willful, and confrontational." },
   { identifier:"e9", name:"Type 9 · The Peacemaker",    description:"Receptive, reassuring, agreeable, and complacent." },
 ];
-const WING_LABELS = WINGS.map(w => {
-  const descriptions = {
-    "e1w9": "More detached and philosophical. The 9-wing softens the One's rigidity with acceptance and a longing for inner peace.",
-    "e1w2": "More warm and people-oriented. The 2-wing channels the One's principles into direct service and concern for others.",
-    "e2w1": "More principled and self-controlled. The 1-wing gives the Two a strong sense of duty and refinement in their giving.",
-    "e2w3": "More ambitious and image-conscious. The 3-wing adds charm and drive, making this subtype highly engaging and sociable.",
-    "e3w2": "More people-pleasing and interpersonal. The 2-wing makes the Three warmer, more relational, and attuned to others' feelings.",
-    "e3w4": "More introspective and image-refined. The 4-wing gives the Three depth, artistic sensibility, and a desire for authenticity.",
-    "e4w3": "More extroverted and achievement-oriented. The 3-wing energizes the Four toward expression, performance, and external recognition.",
-    "e4w5": "More withdrawn and intellectual. The 5-wing deepens the Four's introspection, adding a reclusive, cerebral quality.",
-    "e5w4": "More individualistic and emotionally expressive. The 4-wing gives the Five creativity, aesthetic sensitivity, and deeper self-awareness.",
-    "e5w6": "More loyal and socially engaged. The 6-wing anchors the Five in practical thinking, collaboration, and concern for systems.",
-    "e6w5": "More private and independent. The 5-wing gives the Six greater self-reliance and analytical depth to manage anxiety.",
-    "e6w7": "More outgoing and optimistic. The 7-wing lightens the Six's anxiety, adding humor, enthusiasm, and a love of adventure.",
-    "e7w6": "More responsible and relationship-focused. The 6-wing grounds the Seven's enthusiasm with loyalty and a need for security.",
-    "e7w8": "More assertive and pragmatic. The 8-wing gives the Seven a bold, driven edge and a willingness to go after what they want.",
-    "e8w7": "More expansive and pleasure-seeking. The 7-wing makes the Eight more visionary, charismatic, and energetically restless.",
-    "e8w9": "More calm and receptive. The 9-wing softens the Eight's intensity with patience and a more measured approach to power.",
-    "e9w8": "More assertive and energetic. The 8-wing gives the Nine greater confidence, decisiveness, and a stronger sense of presence.",
-    "e9w1": "More principled and orderly. The 1-wing channels the Nine's acceptance into quiet idealism and a gentle moral compass.",
-  };
-  return { identifier: w, name: WING_NAMES[w], description: descriptions[w] };
-});
+const WING_LABELS = WINGS.map(w => ({
+  identifier: w, name: WING_NAMES[w], description: WING_DESCRIPTIONS[w],
+}));
 const SUBTYPE_LABELS = WINGS.flatMap(w => [
   { identifier:`${w}-sp`, name:`${w.replace("e","")} SP`, description:`${w.replace("e","").replace("w"," w")} · Self-Preservation subtype.` },
   { identifier:`${w}-so`, name:`${w.replace("e","")} SO`, description:`${w.replace("e","").replace("w"," w")} · Social subtype.` },
@@ -94,6 +97,17 @@ server.start(LABELER_PORT, (error, address) => {
   console.log(`Labeler server listening on ${address}`);
 });
 
+// ─── Skyware Bot (for labelAccount) ──────────────────────────────────────────
+let bot = null;
+async function getBot() {
+  if (bot) return bot;
+  if (!LABELER_PASSWORD) throw new Error("LABELER_PASSWORD not set");
+  bot = new Bot({ labelerDid: LABELER_DID });
+  await bot.login({ identifier: LABELER_DID, password: LABELER_PASSWORD });
+  console.log("Bot logged in");
+  return bot;
+}
+
 // ─── Helper: verify token ─────────────────────────────────────────────────────
 async function verifyToken(accessJwt) {
   const payload = JSON.parse(Buffer.from(accessJwt.split('.')[1], 'base64').toString());
@@ -108,41 +122,15 @@ async function verifyToken(accessJwt) {
   return did;
 }
 
-// ─── Helper: remove existing enneagram labels ─────────────────────────────────
-async function removeExistingLabels(did) {
-  const profileUri = `at://${did}/app.bsky.actor.profile/self`;
-  for (const subject of [did, profileUri]) {
-    try {
-      const result = await server.db.execute(
-        `SELECT * FROM labels WHERE uri = ? AND neg = 0`, [subject]
-      );
-      const rows = result.rows || [];
-      for (const label of rows) {
-        if (VALID_LABELS.has(label.val)) {
-          await server.createLabel({ uri: subject, val: label.val, neg: true });
-          console.log(`Negated label "${label.val}" for ${subject}`);
-        }
-      }
-    } catch (err) {
-      console.log(`Could not remove labels for ${subject}:`, err.message);
-    }
-  }
-}
-
 // ─── HTTP + WebSocket proxy server ───────────────────────────────────────────
 const healthServer = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost`);
 
-  // CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
-  if (req.method === "OPTIONS") {
-    res.writeHead(204);
-    res.end();
-    return;
-  }
+  if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
 
   // Health check
   if (url.pathname === "/xrpc/_health" || url.pathname === "/") {
@@ -151,30 +139,34 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // Apply label endpoint
+  // Apply label
   if (url.pathname === "/apply-label" && req.method === "POST") {
     let body = "";
     req.on("data", chunk => body += chunk);
     req.on("end", async () => {
       try {
         const { accessJwt, label } = JSON.parse(body);
-        if (!accessJwt || !label) {
-          res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Missing accessJwt or label" }));
-          return;
-        }
-        if (!VALID_LABELS.has(label)) {
-          res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Invalid label identifier" }));
-          return;
-        }
+        if (!accessJwt || !label) throw new Error("Missing accessJwt or label");
+        if (!VALID_LABELS.has(label)) throw new Error("Invalid label identifier");
+
         const userDid = await verifyToken(accessJwt);
-        console.log(`Verified DID: ${userDid}`);
         console.log(`Applying label "${label}" to ${userDid}`);
-        await removeExistingLabels(userDid);
-        console.log(`Calling createLabel...`);
-        const result = await server.createLabel({ uri: userDid, val: label });
-        console.log(`createLabel result:`, JSON.stringify(result));
+
+        const b = await getBot();
+        const user = await b.getProfile(userDid);
+
+        // Remove existing enneagram labels first
+        const currentLabels = user.labels
+          ?.filter(l => VALID_LABELS.has(l.val) && l.src === LABELER_DID)
+          .map(l => l.val) || [];
+        if (currentLabels.length > 0) {
+          await user.labelAccount([], currentLabels);
+        }
+
+        // Apply new label
+        await user.labelAccount([label]);
+        console.log(`Successfully labeled ${userDid} with ${label}`);
+
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ success: true, did: userDid, label }));
       } catch (err) {
@@ -186,67 +178,28 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // Remove self-label endpoint (clears old self-labels written directly to profile)
-  if (url.pathname === "/remove-self-label" && req.method === "POST") {
-    let body = "";
-    req.on("data", chunk => body += chunk);
-    req.on("end", async () => {
-      try {
-        const { accessJwt } = JSON.parse(body);
-        if (!accessJwt) {
-          res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Missing accessJwt" }));
-          return;
-        }
-        const userDid = await verifyToken(accessJwt);
-
-        // Fetch existing profile record
-        const getRes = await fetch(`https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=${userDid}&collection=app.bsky.actor.profile&rkey=self`, {
-          headers: { 'Authorization': `Bearer ${accessJwt}` }
-        });
-        const existing = getRes.ok ? await getRes.json() : { value: {} };
-        const record = existing.value || {};
-        record.$type = record.$type || 'app.bsky.actor.profile';
-
-        // Filter out all enneagram self-labels
-        const filtered = (record.labels?.values || []).filter(l =>
-          !l.val.match(/^e[1-9](w[1-9](-(sp|so|sx))?)?$/)
-        );
-        record.labels = { $type: 'com.atproto.label.defs#selfLabels', values: filtered };
-
-        const putRes = await fetch('https://bsky.social/xrpc/com.atproto.repo.putRecord', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${accessJwt}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ repo: userDid, collection: 'app.bsky.actor.profile', rkey: 'self', record })
-        });
-
-        if (!putRes.ok) throw new Error('Failed to remove self-labels');
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: true }));
-      } catch (err) {
-        console.error("Remove self-label error:", err);
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: err.message }));
-      }
-    });
-    return;
-  }
-
-  // Remove label endpoint
+  // Remove label
   if (url.pathname === "/remove-label" && req.method === "POST") {
     let body = "";
     req.on("data", chunk => body += chunk);
     req.on("end", async () => {
       try {
         const { accessJwt } = JSON.parse(body);
-        if (!accessJwt) {
-          res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: "Missing accessJwt" }));
-          return;
-        }
+        if (!accessJwt) throw new Error("Missing accessJwt");
+
         const userDid = await verifyToken(accessJwt);
         console.log(`Removing labels for ${userDid}`);
-        await removeExistingLabels(userDid);
+
+        const b = await getBot();
+        const user = await b.getProfile(userDid);
+
+        const currentLabels = user.labels
+          ?.filter(l => VALID_LABELS.has(l.val) && l.src === LABELER_DID)
+          .map(l => l.val) || [];
+        if (currentLabels.length > 0) {
+          await user.labelAccount([], currentLabels);
+        }
+
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ success: true, did: userDid }));
       } catch (err) {
@@ -258,19 +211,45 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // Setup labels endpoint
+  // Remove self-label
+  if (url.pathname === "/remove-self-label" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", async () => {
+      try {
+        const { accessJwt } = JSON.parse(body);
+        if (!accessJwt) throw new Error("Missing accessJwt");
+        const userDid = await verifyToken(accessJwt);
+        const getRes = await fetch(`https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=${userDid}&collection=app.bsky.actor.profile&rkey=self`, {
+          headers: { 'Authorization': `Bearer ${accessJwt}` }
+        });
+        const existing = getRes.ok ? await getRes.json() : { value: {} };
+        const record = existing.value || {};
+        record.$type = record.$type || 'app.bsky.actor.profile';
+        const filtered = (record.labels?.values || []).filter(l =>
+          !l.val.match(/^e[1-9](w[1-9](-(sp|so|sx))?)?$/)
+        );
+        record.labels = { $type: 'com.atproto.label.defs#selfLabels', values: filtered };
+        const putRes = await fetch('https://bsky.social/xrpc/com.atproto.repo.putRecord', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${accessJwt}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repo: userDid, collection: 'app.bsky.actor.profile', rkey: 'self', record })
+        });
+        if (!putRes.ok) throw new Error('Failed to remove self-labels');
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true }));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // Setup labels
   if (url.pathname === "/setup-labels") {
     const key = url.searchParams.get("key");
-    if (key !== SETUP_KEY) {
-      res.writeHead(403, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Forbidden" }));
-      return;
-    }
-    if (!LABELER_PASSWORD) {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "LABELER_PASSWORD not set" }));
-      return;
-    }
+    if (key !== SETUP_KEY) { res.writeHead(403); res.end(JSON.stringify({ error: "Forbidden" })); return; }
     try {
       const agent = new AtpAgent({ service: "https://bsky.social" });
       await agent.login({ identifier: LABELER_DID, password: LABELER_PASSWORD });
@@ -291,8 +270,7 @@ const healthServer = http.createServer(async (req, res) => {
         }))
       };
       await agent.api.com.atproto.repo.putRecord({
-        repo: LABELER_DID, collection: "app.bsky.labeler.service",
-        rkey: "self", record,
+        repo: LABELER_DID, collection: "app.bsky.labeler.service", rkey: "self", record,
       });
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ success: true, message: `Defined ${ALL_LABELS.length} labels.` }));
@@ -303,7 +281,7 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // Proxy all other HTTP requests to Skyware
+  // Proxy HTTP to Skyware
   const options = {
     hostname: "127.0.0.1", port: LABELER_PORT,
     path: req.url, method: req.method, headers: req.headers,
@@ -312,14 +290,11 @@ const healthServer = http.createServer(async (req, res) => {
     res.writeHead(proxyRes.statusCode, proxyRes.headers);
     proxyRes.pipe(res, { end: true });
   });
-  proxy.on("error", err => {
-    res.writeHead(502, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "Bad Gateway" }));
-  });
+  proxy.on("error", () => { res.writeHead(502); res.end(JSON.stringify({ error: "Bad Gateway" })); });
   req.pipe(proxy, { end: true });
 });
 
-// ─── WebSocket proxy — critical for subscribeLabels ───────────────────────────
+// WebSocket proxy for subscribeLabels
 healthServer.on("upgrade", (req, socket, head) => {
   console.log(`WebSocket upgrade: ${req.url}`);
   const target = net.connect(LABELER_PORT, "127.0.0.1", () => {
@@ -333,18 +308,10 @@ healthServer.on("upgrade", (req, socket, head) => {
     socket.pipe(target);
     target.pipe(socket);
   });
-  target.on("error", err => {
-    console.error("WebSocket proxy error:", err);
-    socket.destroy();
-  });
+  target.on("error", () => socket.destroy());
   socket.on("error", () => target.destroy());
 });
 
-healthServer.listen(PORT, () => {
-  console.log(`Proxy server listening on port ${PORT}`);
-});
+healthServer.listen(PORT, () => console.log(`Proxy server listening on port ${PORT}`));
 
-process.on("SIGTERM", () => {
-  server.close();
-  healthServer.close();
-});
+process.on("SIGTERM", () => { server.close(); healthServer.close(); });
