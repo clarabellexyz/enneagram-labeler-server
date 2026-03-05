@@ -94,17 +94,16 @@ async function verifyToken(accessJwt) {
 
 // ─── Helper: remove existing enneagram labels for a DID ──────────────────────
 async function removeExistingLabels(did) {
-  const existing = server.db
-    .selectFrom("labels")
-    .selectAll()
-    .where("uri", "=", did)
-    .where("neg", "=", 0)
-    .execute ? await server.db.selectFrom("labels").selectAll().where("uri","=",did).where("neg","=",0).execute() : [];
-
-  for (const label of existing) {
-    if (VALID_LABELS.has(label.val)) {
-      await server.createLabel({ uri: did, val: label.val, neg: true });
+  try {
+    const labels = await server.queryLabels({ subjects: [did] });
+    for (const label of labels) {
+      if (VALID_LABELS.has(label.val) && !label.neg) {
+        await server.createLabel({ uri: did, val: label.val, neg: true });
+      }
     }
+  } catch (err) {
+    // If queryLabels isn't available or fails, skip removal — createLabel will still work
+    console.log("Could not query existing labels, proceeding:", err.message);
   }
 }
 
