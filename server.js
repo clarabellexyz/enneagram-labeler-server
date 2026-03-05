@@ -143,9 +143,12 @@ const healthServer = http.createServer(async (req, res) => {
           return;
         }
         const userDid = await verifyToken(accessJwt);
+        console.log(`Verified DID: ${userDid}`);
         console.log(`Applying label "${label}" to ${userDid}`);
         await removeExistingLabels(userDid);
-        await server.createLabel({ uri: userDid, val: label });
+        console.log(`Calling createLabel...`);
+        const result = await server.createLabel({ uri: userDid, val: label });
+        console.log(`createLabel result:`, JSON.stringify(result));
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ success: true, did: userDid, label }));
       } catch (err) {
