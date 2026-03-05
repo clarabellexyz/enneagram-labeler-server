@@ -104,15 +104,15 @@ const ALL_LABELS = [...TYPE_LABELS, ...WING_LABELS, ...SUBTYPE_LABELS];
 // ─── Labeler server ───────────────────────────────────────────────────────────
 const labelerServer = new LabelerServer({ did: DID, signingKey: SIGNING_KEY, dbPath: '/data/labels.db' });
 
-// ─── DB helpers (using proven .prepare().all() pattern) ──────────────────────
+// ─── DB helpers ──────────────────────────────────────────────────────────────
 function fetchCurrentLabels(did) {
-  const query = labelerServer.db
-    .prepare(`SELECT * FROM labels WHERE uri = ? ORDER BY cts DESC`)
-    .all(did);
-  // Replay negations to get current active labels
-  const labels = query.reduce((set, label) => {
-    if (!label.neg) set.add(label.val);
-    else set.delete(label.val);
+  const rows = labelerServer.db.execute(
+    `SELECT val, neg FROM labels WHERE uri = ? ORDER BY cts DESC`,
+    [did]
+  );
+  const labels = rows.reduce((set, row) => {
+    if (!row.neg) set.add(row.val);
+    else set.delete(row.val);
     return set;
   }, new Set());
   return labels;
