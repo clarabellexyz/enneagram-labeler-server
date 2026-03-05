@@ -232,7 +232,7 @@ const healthServer = http.createServer(async (req, res) => {
         labelValues: ALL_LABELS.map(l => l.identifier),
         labelValueDefinitions: ALL_LABELS.map(l => ({
           identifier: l.identifier, severity: "inform", blurs: "none",
-          defaultSetting: "ignore", adultOnly: false,
+          defaultSetting: "warn", adultOnly: false,
           locales: [{ lang: "en", name: l.name, description: l.description }]
         }))
       };
