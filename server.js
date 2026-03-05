@@ -94,14 +94,20 @@ async function removeExistingLabels(did) {
   const profileUri = `at://${did}/app.bsky.actor.profile/self`;
   for (const subject of [did, profileUri]) {
     try {
-      const labels = await server.queryLabels({ subjects: [subject] });
+      const labels = await server.db
+        .selectFrom("labels")
+        .selectAll()
+        .where("uri", "=", subject)
+        .where("neg", "=", 0)
+        .execute();
       for (const label of labels) {
-        if (VALID_LABELS.has(label.val) && !label.neg) {
+        if (VALID_LABELS.has(label.val)) {
           await server.createLabel({ uri: subject, val: label.val, neg: true });
+          console.log(`Negated label "${label.val}" for ${subject}`);
         }
       }
     } catch (err) {
-      console.log(`Could not query labels for ${subject}:`, err.message);
+      console.log(`Could not remove labels for ${subject}:`, err.message);
     }
   }
 }
