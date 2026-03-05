@@ -226,6 +226,18 @@ const healthServer = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
+  // Debug endpoint - remove after use
+  if (url.pathname === '/debug-db') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    const dbInfo = {
+      dbType: typeof labelerServer.db,
+      dbKeys: labelerServer.db ? Object.getOwnPropertyNames(Object.getPrototypeOf(labelerServer.db)) : [],
+      serverKeys: Object.keys(labelerServer),
+    };
+    res.end(JSON.stringify(dbInfo, null, 2));
+    return;
+  }
+
   // Health
   if (url.pathname === '/' || url.pathname === '/xrpc/_health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
