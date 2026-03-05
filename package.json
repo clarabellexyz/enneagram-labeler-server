@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@atproto/api": "latest",
+    "@skyware/bot": "latest",
     "@skyware/labeler": "latest"
   }
 }
