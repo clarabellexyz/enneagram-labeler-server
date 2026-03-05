@@ -113,8 +113,19 @@ function buildAllLabels() {
 const labelerServer = new LabelerServer({ did: DID, signingKey: SIGNING_KEY, dbPath: '/data/labels.db' });
 
 // ─── Label helpers ────────────────────────────────────────────────────────────
+// Legacy label identifiers from before the rename (e1, e1w2, e1w2-sp, etc.)
+const LEGACY_LABEL_IDS = [];
+const LEGACY_WINGS = { 1:[9,2],2:[1,3],3:[2,4],4:[3,5],5:[4,6],6:[5,7],7:[6,8],8:[7,9],9:[8,1] };
+for (let t = 1; t <= 9; t++) {
+  LEGACY_LABEL_IDS.push(`e${t}`);
+  for (const w of LEGACY_WINGS[t]) {
+    LEGACY_LABEL_IDS.push(`e${t}w${w}`);
+    for (const s of ['sp','so','sx']) LEGACY_LABEL_IDS.push(`e${t}w${w}-${s}`);
+  }
+}
+
 async function removeExistingEnneagramLabels(did) {
-  const toNegate = [...ALL_LABEL_IDS];
+  const toNegate = [...ALL_LABEL_IDS, ...LEGACY_LABEL_IDS];
   await labelerServer.createLabels({ uri: did }, { negate: toNegate });
   console.log(`Negated all enneagram labels for ${did}`);
 }
