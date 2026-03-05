@@ -154,8 +154,7 @@ const healthServer = http.createServer(async (req, res) => {
         console.log(`Applying label "${label}" to ${userDid}`);
         await removeExistingLabels(userDid);
         console.log(`Calling createLabel...`);
-        const profileUri = `at://${userDid}/app.bsky.actor.profile/self`;
-        const result = await server.createLabel({ uri: profileUri, val: label });
+        const result = await server.createLabel({ uri: userDid, val: label });
         console.log(`createLabel result:`, JSON.stringify(result));
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ success: true, did: userDid, label }));
