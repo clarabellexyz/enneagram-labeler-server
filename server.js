@@ -105,27 +105,11 @@ const ALL_LABELS = [...TYPE_LABELS, ...WING_LABELS, ...SUBTYPE_LABELS];
 const labelerServer = new LabelerServer({ did: DID, signingKey: SIGNING_KEY, dbPath: '/data/labels.db' });
 
 // ─── DB helpers ──────────────────────────────────────────────────────────────
-function fetchCurrentLabels(did) {
-  const result = labelerServer.db.execute(
-    `SELECT val, neg FROM labels WHERE uri = ? ORDER BY cts DESC`,
-    [did]
-  );
-  const rows = Array.isArray(result) ? result : (result?.rows ?? []);
-  const labels = rows.reduce((set, row) => {
-    if (!row.neg) set.add(row.val);
-    else set.delete(row.val);
-    return set;
-  }, new Set());
-  return labels;
-}
-
 async function removeExistingEnneagramLabels(did) {
-  const current = fetchCurrentLabels(did);
-  const toRemove = [...current].filter(v => VALID_LABELS.has(v));
-  if (toRemove.length > 0) {
-    await labelerServer.createLabels({ uri: did }, { negate: toRemove });
-    console.log(`Negated labels for ${did}: ${toRemove.join(', ')}`);
-  }
+  // Negate all possible enneagram labels - createLabels handles ones that don't exist
+  const allLabelIds = ALL_LABELS.map(l => l.identifier);
+  await labelerServer.createLabels({ uri: did }, { negate: allLabelIds });
+  console.log(`Negated all enneagram labels for ${did}`);
 }
 
 // ─── Firehose label application (like-based) ──────────────────────────────────
@@ -146,13 +130,8 @@ async function applyLabelFromLike(did, rkey) {
     return;
   }
 
-  // Remove existing type labels (keep wing/subtype labels from website)
-  const current = fetchCurrentLabels(did);
-  const typeLabelsToRemove = [...current].filter(v => /^e[1-9]$/.test(v));
-  if (typeLabelsToRemove.length > 0) {
-    await labelerServer.createLabels({ uri: did }, { negate: typeLabelsToRemove });
-  }
-
+  // Remove existing type labels then apply new one
+  await removeExistingEnneagramLabels(did);
   await labelerServer.createLabel({ uri: did, val: match.label });
   console.log(`Applied label ${match.label} to ${did}`);
 }
