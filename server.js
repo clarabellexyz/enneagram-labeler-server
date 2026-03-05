@@ -1,6 +1,7 @@
 import { LabelerServer } from "@skyware/labeler";
 import { AtpAgent } from "@atproto/api";
 import http from "http";
+import net from "net";
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const LABELER_DID = process.env.LABELER_DID;
@@ -16,18 +17,16 @@ if (!LABELER_DID || !SIGNING_KEY) {
 }
 
 // ─── Valid label identifiers ──────────────────────────────────────────────────
-const VALID_LABELS = new Set([
-  "e1","e2","e3","e4","e5","e6","e7","e8","e9",
-  "e1w9","e1w2","e2w1","e2w3","e3w2","e3w4","e4w3","e4w5",
-  "e5w4","e5w6","e6w5","e6w7","e7w6","e7w8","e8w7","e8w9","e9w8","e9w1",
-  ...["e1w9","e1w2","e2w1","e2w3","e3w2","e3w4","e4w3","e4w5",
-      "e5w4","e5w6","e6w5","e6w7","e7w6","e7w8","e8w7","e8w9","e9w8","e9w1"]
-    .flatMap(w => [`${w}-sp`,`${w}-so`,`${w}-sx`])
-]);
-
-// ─── Label definitions for setup ─────────────────────────────────────────────
 const WINGS = ["e1w9","e1w2","e2w1","e2w3","e3w2","e3w4","e4w3","e4w5",
                "e5w4","e5w6","e6w5","e6w7","e7w6","e7w8","e8w7","e8w9","e9w8","e9w1"];
+
+const VALID_LABELS = new Set([
+  "e1","e2","e3","e4","e5","e6","e7","e8","e9",
+  ...WINGS,
+  ...WINGS.flatMap(w => [`${w}-sp`,`${w}-so`,`${w}-sx`])
+]);
+
+// ─── Label definitions ────────────────────────────────────────────────────────
 const WING_NAMES = {
   "e1w9":"1w9 · The Idealist","e1w2":"1w2 · The Advocate",
   "e2w1":"2w1 · The Servant","e2w3":"2w3 · The Host",
@@ -76,14 +75,11 @@ server.start(LABELER_PORT, (error, address) => {
   console.log(`Labeler server listening on ${address}`);
 });
 
-// ─── Helper: verify a Bluesky access token and return the DID ────────────────
+// ─── Helper: verify token ─────────────────────────────────────────────────────
 async function verifyToken(accessJwt) {
-  // Decode the DID directly from the JWT payload
   const payload = JSON.parse(Buffer.from(accessJwt.split('.')[1], 'base64').toString());
   const did = payload.sub;
   if (!did || !did.startsWith('did:')) throw new Error('Invalid token');
-
-  // Verify the token is still valid by calling getSession directly
   const res = await fetch('https://bsky.social/xrpc/com.atproto.server.getSession', {
     headers: { 'Authorization': `Bearer ${accessJwt}` }
   });
@@ -93,7 +89,7 @@ async function verifyToken(accessJwt) {
   return did;
 }
 
-// ─── Helper: remove existing enneagram labels for a DID ──────────────────────
+// ─── Helper: remove existing enneagram labels ─────────────────────────────────
 async function removeExistingLabels(did) {
   try {
     const labels = await server.queryLabels({ subjects: [did] });
@@ -103,16 +99,15 @@ async function removeExistingLabels(did) {
       }
     }
   } catch (err) {
-    // If queryLabels isn't available or fails, skip removal — createLabel will still work
     console.log("Could not query existing labels, proceeding:", err.message);
   }
 }
 
-// ─── HTTP server ──────────────────────────────────────────────────────────────
+// ─── HTTP + WebSocket proxy server ───────────────────────────────────────────
 const healthServer = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost`);
 
-  // CORS headers — allow the GitHub Pages frontend to call this server
+  // CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
@@ -123,48 +118,36 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── Health check ────────────────────────────────────────────────────────────
+  // Health check
   if (url.pathname === "/xrpc/_health" || url.pathname === "/") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ version: "1.0.0", status: "ok" }));
     return;
   }
 
-  // ── Apply label endpoint ─────────────────────────────────────────────────────
-  // POST /apply-label
-  // Body: { accessJwt: string, label: string }
+  // Apply label endpoint
   if (url.pathname === "/apply-label" && req.method === "POST") {
     let body = "";
     req.on("data", chunk => body += chunk);
     req.on("end", async () => {
       try {
         const { accessJwt, label } = JSON.parse(body);
-
         if (!accessJwt || !label) {
           res.writeHead(400, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "Missing accessJwt or label" }));
           return;
         }
-
         if (!VALID_LABELS.has(label)) {
           res.writeHead(400, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "Invalid label identifier" }));
           return;
         }
-
-        // Verify the token and get the user's DID
         const userDid = await verifyToken(accessJwt);
         console.log(`Applying label "${label}" to ${userDid}`);
-
-        // Remove any existing enneagram labels for this user
         await removeExistingLabels(userDid);
-
-        // Emit the new signed label
         await server.createLabel({ uri: userDid, val: label });
-
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ success: true, did: userDid, label }));
-
       } catch (err) {
         console.error("Apply label error:", err);
         res.writeHead(500, { "Content-Type": "application/json" });
@@ -174,9 +157,7 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── Remove label endpoint ────────────────────────────────────────────────────
-  // POST /remove-label
-  // Body: { accessJwt: string }
+  // Remove label endpoint
   if (url.pathname === "/remove-label" && req.method === "POST") {
     let body = "";
     req.on("data", chunk => body += chunk);
@@ -188,14 +169,11 @@ const healthServer = http.createServer(async (req, res) => {
           res.end(JSON.stringify({ error: "Missing accessJwt" }));
           return;
         }
-
         const userDid = await verifyToken(accessJwt);
         console.log(`Removing labels for ${userDid}`);
         await removeExistingLabels(userDid);
-
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ success: true, did: userDid }));
-
       } catch (err) {
         console.error("Remove label error:", err);
         res.writeHead(500, { "Content-Type": "application/json" });
@@ -205,7 +183,7 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── One-time label setup endpoint ────────────────────────────────────────────
+  // Setup labels endpoint
   if (url.pathname === "/setup-labels") {
     const key = url.searchParams.get("key");
     if (key !== SETUP_KEY) {
@@ -250,7 +228,7 @@ const healthServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── Proxy all other requests to Skyware ──────────────────────────────────────
+  // Proxy all other HTTP requests to Skyware
   const options = {
     hostname: "127.0.0.1", port: LABELER_PORT,
     path: req.url, method: req.method, headers: req.headers,
@@ -266,8 +244,29 @@ const healthServer = http.createServer(async (req, res) => {
   req.pipe(proxy, { end: true });
 });
 
+// ─── WebSocket proxy — critical for subscribeLabels ───────────────────────────
+healthServer.on("upgrade", (req, socket, head) => {
+  console.log(`WebSocket upgrade: ${req.url}`);
+  const target = net.connect(LABELER_PORT, "127.0.0.1", () => {
+    target.write(
+      `GET ${req.url} HTTP/1.1\r\n` +
+      `Host: 127.0.0.1:${LABELER_PORT}\r\n` +
+      Object.entries(req.headers).map(([k, v]) => `${k}: ${v}`).join("\r\n") +
+      `\r\n\r\n`
+    );
+    target.write(head);
+    socket.pipe(target);
+    target.pipe(socket);
+  });
+  target.on("error", err => {
+    console.error("WebSocket proxy error:", err);
+    socket.destroy();
+  });
+  socket.on("error", () => target.destroy());
+});
+
 healthServer.listen(PORT, () => {
-  console.log(`Health/proxy server listening on port ${PORT}`);
+  console.log(`Proxy server listening on port ${PORT}`);
 });
 
 process.on("SIGTERM", () => {
