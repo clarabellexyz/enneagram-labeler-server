@@ -106,10 +106,11 @@ const labelerServer = new LabelerServer({ did: DID, signingKey: SIGNING_KEY, dbP
 
 // ─── DB helpers ──────────────────────────────────────────────────────────────
 function fetchCurrentLabels(did) {
-  const rows = labelerServer.db.execute(
+  const result = labelerServer.db.execute(
     `SELECT val, neg FROM labels WHERE uri = ? ORDER BY cts DESC`,
     [did]
   );
+  const rows = Array.isArray(result) ? result : (result?.rows ?? []);
   const labels = rows.reduce((set, row) => {
     if (!row.neg) set.add(row.val);
     else set.delete(row.val);
@@ -225,6 +226,14 @@ const healthServer = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+  // Debug execute return shape
+  if (url.pathname === '/debug-execute') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    const result = labelerServer.db.execute(`SELECT val, neg FROM labels LIMIT 3`, []);
+    res.end(JSON.stringify({ resultType: typeof result, isArray: Array.isArray(result), result }, null, 2));
+    return;
+  }
 
   // Debug endpoint - remove after use
   if (url.pathname === '/debug-db') {
