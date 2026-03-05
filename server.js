@@ -77,14 +77,18 @@ server.start(LABELER_PORT, (error, address) => {
 
 // ─── Helper: verify a Bluesky access token and return the DID ────────────────
 async function verifyToken(accessJwt) {
-  // Decode the DID directly from the JWT payload (it's a standard JWT)
+  // Decode the DID directly from the JWT payload
   const payload = JSON.parse(Buffer.from(accessJwt.split('.')[1], 'base64').toString());
   const did = payload.sub;
   if (!did || !did.startsWith('did:')) throw new Error('Invalid token');
 
-  // Verify the token is still valid by calling getSession
-  const agent = new AtpAgent({ service: "https://bsky.social" });
-  await agent.resumeSession({ accessJwt, refreshJwt: "", handle: "", did, email: "", active: true });
+  // Verify the token is still valid by calling getSession directly
+  const res = await fetch('https://bsky.social/xrpc/com.atproto.server.getSession', {
+    headers: { 'Authorization': `Bearer ${accessJwt}` }
+  });
+  if (!res.ok) throw new Error('Invalid or expired token');
+  const data = await res.json();
+  if (data.did !== did) throw new Error('Token DID mismatch');
   return did;
 }
 
